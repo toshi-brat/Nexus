@@ -1,14 +1,45 @@
-fastapi>=0.111.0
-uvicorn[standard]>=0.30.0
-sqlalchemy>=2.0.0
-pydantic>=2.7.0
-pydantic-settings>=2.3.0
-aiohttp>=3.9.0
-feedparser>=6.0.0
-vaderSentiment>=3.3.2
-nsepython>=2.0
-praw>=7.7.0
-kiteconnect>=5.0.0
-upstox-python-sdk>=2.9.0
-dhanhq>=2.0.0
-python-dotenv>=1.0.0
+# NEXUS Backend — Python dependencies
+
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# HTTP clients
+httpx==0.27.2
+requests==2.32.3
+aiohttp==3.10.10
+
+# IndMoney / INDstocks SDK (optional — connector is built in)
+# indstocks-sdk>=1.0
+
+# NSE data
+nsepython==1.0.39
+jugaad-trader==0.28
+
+# Brokers
+kiteconnect==5.0.1      # Zerodha
+upstox-python-sdk==2.10.3
+
+# Sentiment
+vaderSentiment==3.3.2
+transformers==4.44.2     # FinBERT
+torch==2.4.1
+feedparser==6.0.11       # RSS news feeds
+beautifulsoup4==4.12.3   # Web scraping
+newspaper3k==0.2.8
+
+# Social
+praw==7.7.1              # Reddit
+
+# Database
+sqlalchemy==2.0.35
+aiosqlite==0.20.0
+
+# Utils
+python-dotenv==1.0.1
+websockets==13.1
+schedule==1.2.2
+pandas==2.2.3
+numpy==2.1.2
