@@ -1,6 +1,7 @@
-"""News scraper from top 10 Indian/global business sites via RSS."""
+"""News ingestion from RSS feeds with optional NewsAPI enrichment."""
 import asyncio, aiohttp, feedparser
 from datetime import datetime
+from config import settings
 
 FEEDS = [
     ("Economic Times Markets","https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
@@ -48,14 +49,70 @@ async def _fetch_feed(session, name, url, max_items=5):
     except Exception:
         return []
 
+def _extra_feeds():
+    feeds = []
+    raw = (settings.ADDITIONAL_RSS_FEEDS or "").strip()
+    if not raw:
+        return feeds
+    for chunk in raw.split(";"):
+        chunk = chunk.strip()
+        if not chunk or "|" not in chunk:
+            continue
+        name, url = chunk.split("|", 1)
+        name = name.strip()
+        url = url.strip()
+        if name and url:
+            feeds.append((name, url))
+    return feeds
+
+async def _fetch_newsapi(session, max_items=15):
+    if not settings.NEWS_API_KEY:
+        return []
+    try:
+        params = {
+            "q": settings.NEWS_QUERY,
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": max_items,
+            "apiKey": settings.NEWS_API_KEY,
+        }
+        async with session.get("https://newsapi.org/v2/everything", params=params, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+            data = await resp.json()
+        items = []
+        for article in data.get("articles", [])[:max_items]:
+            published = article.get("publishedAt", "")
+            items.append({
+                "title": article.get("title", ""),
+                "source": (article.get("source") or {}).get("name", "NewsAPI"),
+                "time": published[11:16] if len(published) >= 16 else datetime.now().strftime("%H:%M"),
+                "url": article.get("url", "#"),
+                "body": article.get("description", "") or article.get("content", "") or "",
+                "sentiment": 0.0,
+            })
+        return items
+    except Exception:
+        return []
+
 async def fetch_all_news(max_per_feed=5):
     try:
         async with aiohttp.ClientSession() as session:
-            tasks = [_fetch_feed(session, name, url, max_per_feed) for name,url in FEEDS]
+            feeds = FEEDS + _extra_feeds()
+            tasks = [_fetch_feed(session, name, url, max_per_feed) for name, url in feeds]
             results = await asyncio.gather(*tasks, return_exceptions=True)
         items = []
         for r in results:
-            if isinstance(r, list): items.extend(r)
-        return items if items else DEMO_NEWS
+            if isinstance(r, list):
+                items.extend(r)
+        async with aiohttp.ClientSession() as session:
+            items.extend(await _fetch_newsapi(session, max_per_feed * 2))
+        deduped = []
+        seen = set()
+        for item in items:
+            key = item.get("url") or item.get("title")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+        return deduped if deduped else DEMO_NEWS
     except Exception:
         return DEMO_NEWS

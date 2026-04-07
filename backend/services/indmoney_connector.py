@@ -75,7 +75,8 @@ class IndMoneyConnector:
 
     async def get_funds(self) -> Dict:
         """Available margin, balance, and buying power."""
-        return await self._get("/user/funds")
+        data = await self._get("/funds")
+        return data.get("data", data) if isinstance(data, dict) else data
 
     # ── Portfolio ─────────────────────────────────────────────────────────────
 
@@ -97,18 +98,36 @@ class IndMoneyConnector:
             self.get_funds(),
         )
 
+        def _qty(item: Dict) -> float:
+            return float(
+                item.get("quantity")
+                or item.get("qty")
+                or item.get("total_qty")
+                or item.get("net_qty")
+                or 0
+            )
+
+        def _price(item: Dict, *keys: str) -> float:
+            for key in keys:
+                value = item.get(key)
+                if value not in (None, ""):
+                    return float(value)
+            return 0.0
+
         invested = sum(
-            float(h.get("avg_price", 0)) * float(h.get("quantity", 0))
+            _price(h, "avg_price", "average_price", "dp_avg_price") * _qty(h)
             for h in holdings
         )
-        current_value = sum(
-            float(h.get("ltp", 0)) * float(h.get("quantity", 0))
-            for h in holdings
-        )
+        current_value = sum(_price(h, "ltp", "last_price", "current_price") * _qty(h) for h in holdings)
         day_pnl = sum(
-            float(p.get("day_pnl", 0)) for p in positions
+            _price(p, "day_pnl", "unrealized_pnl", "realized_profit") for p in positions
         )
-        pnl = current_value - invested
+
+        unrealized_pnl = _price(funds, "unrealized_pnl")
+        if current_value <= 0 and invested > 0 and unrealized_pnl:
+            current_value = invested + unrealized_pnl
+
+        pnl = current_value - invested if current_value else unrealized_pnl
 
         return {
             "holdings":  holdings,

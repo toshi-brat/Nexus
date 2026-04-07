@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { portfolioApi } from '../lib/api'
 import { fmt, colorPnl } from '../lib/utils'
-import { PieChart, Briefcase, RefreshCw, AlertCircle } from 'lucide-react'
+import { Briefcase, RefreshCw, AlertCircle, Wallet } from 'lucide-react'
 
 export default function Portfolio() {
   const { data, isLoading, refetch } = useQuery({ queryKey: ['portfolio'], queryFn: portfolioApi.getLiveHoldings })
@@ -19,7 +19,7 @@ export default function Portfolio() {
       {isLoading ? <div className="h-64 shimmer rounded w-full"></div> : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className="card p-5 border-l-4 border-l-border">
               <span className="label">Total Invested</span>
               <div className="text-2xl font-bold num mt-1">{fmt.inr(data?.summary?.total_invested)}</div>
@@ -40,15 +40,29 @@ export default function Portfolio() {
                 {fmt.pct(data?.summary?.total_pnl_pct)}
               </div>
             </div>
+            <div className="card p-5 border-l-4 border-l-warn">
+              <span className="label">Available Cash</span>
+              <div className="text-2xl font-bold num mt-1">{fmt.inr(data?.summary?.cash_balance)}</div>
+            </div>
           </div>
 
           {/* Broker Status */}
-          {data?.summary?.broker === 'demo' && (
+          {data?.summary?.broker === 'demo' ? (
             <div className="bg-warn/10 border border-warn/20 text-warn p-4 rounded-lg flex items-start gap-3">
               <AlertCircle className="shrink-0 mt-0.5" size={20} />
               <div>
                 <p className="font-semibold text-sm">Showing Demo Data</p>
                 <p className="text-xs opacity-80 mt-1">Connect your broker (Zerodha/Upstox/Dhan) in the backend .env file and restart to see live holdings.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-blue/10 border border-blue/20 text-blue p-4 rounded-lg flex items-start gap-3">
+              <Wallet className="shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="font-semibold text-sm">Connected to INDmoney</p>
+                <p className="text-xs opacity-80 mt-1">
+                  Portfolio totals are live. Per-holding LTP may be unavailable for some rows until quote enrichment is added.
+                </p>
               </div>
             </div>
           )}
@@ -71,7 +85,7 @@ export default function Portfolio() {
                 <tbody>
                   {data?.holdings?.map((h: any) => {
                     const inv = h.qty * h.avg_price;
-                    const cur = h.qty * h.ltp;
+                    const cur = h.current;
                     return (
                     <tr key={h.symbol} className="table-row">
                       <td className="p-4 pl-6 font-semibold">{h.symbol}</td>
@@ -85,6 +99,11 @@ export default function Portfolio() {
                       </td>
                     </tr>
                   )})}
+                  {data?.holdings?.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-tx-m">No holdings returned from INDmoney.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
