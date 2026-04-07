@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+  body { background: #0b0c0f; color: #e2e4f0; min-height: 100dvh; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #111318; }
+  ::-webkit-scrollbar-thumb { background: #2f3140; border-radius: 3px; }
+  ::selection { background: rgba(0,212,170,0.2); }
+}
+
+@layer utilities {
+  .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  .gain-text { color: #22d98a; }
+  .loss-text { color: #ff4d6d; }
+  .neutral-text { color: #7880a0; }
+  .card { background: #111318; border: 1px solid #252730; border-radius: 0.5rem; }
+  .card-inner { background: #161820; border: 1px solid #252730; border-radius: 0.375rem; }
+  .btn-primary { background: #00d4aa; color: #0b0c0f; font-weight: 600; padding: 0.4rem 1rem;
+    border-radius: 0.375rem; transition: background 150ms; font-size: 0.8rem; }
+  .btn-primary:hover { background: #00a87f; }
+  .btn-ghost { background: transparent; color: #7880a0; padding: 0.4rem 1rem;
+    border: 1px solid #252730; border-radius: 0.375rem; transition: all 150ms; font-size: 0.8rem; }
+  .btn-ghost:hover { color: #e2e4f0; border-color: #2f3140; }
+  .badge-gain { background: rgba(34,217,138,0.12); color: #22d98a; padding: 0.1rem 0.45rem;
+    border-radius: 999px; font-size: 0.65rem; font-weight: 600; font-family: monospace; }
+  .badge-loss { background: rgba(255,77,109,0.12); color: #ff4d6d; padding: 0.1rem 0.45rem;
+    border-radius: 999px; font-size: 0.65rem; font-weight: 600; font-family: monospace; }
+  .badge-neutral { background: rgba(120,128,160,0.12); color: #7880a0; padding: 0.1rem 0.45rem;
+    border-radius: 999px; font-size: 0.65rem; font-weight: 600; }
+  .input { background: #161820; border: 1px solid #252730; border-radius: 0.375rem;
+    color: #e2e4f0; padding: 0.4rem 0.75rem; font-size: 0.8rem; width: 100%;
+    transition: border-color 150ms; }
+  .input:focus { outline: none; border-color: #00d4aa; }
+  .input::placeholder { color: #454860; }
+  .label { color: #7880a0; font-size: 0.7rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; display: block; }
+  .table-row { border-bottom: 1px solid #1c1e28; transition: background 100ms; }
+  .table-row:hover { background: #161820; }
+  .shimmer {
+    background: linear-gradient(90deg, #161820 25%, #1c1e28 50%, #161820 75%);
+    background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 0.25rem;
+  }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+}
