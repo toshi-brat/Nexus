@@ -1,12 +1,16 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-import sys, os
+import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import settings
 
-engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {},
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
@@ -66,5 +70,5 @@ def get_db():
         db.close()
 
 def create_tables():
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(settings.DATABASE_DIR, exist_ok=True)
     Base.metadata.create_all(bind=engine)

@@ -3,6 +3,7 @@ FastAPI router — IndMoney / INDstocks endpoints
 Mounted at: /indmoney
 """
 
+import httpx
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import List, Optional
@@ -19,33 +20,52 @@ def indmoney() -> IndMoneyConnector:
         raise HTTPException(503, "IndMoney connector unavailable — check INDMONEY_ACCESS_TOKEN in .env")
 
 
+def _raise_api_error(exc: httpx.HTTPStatusError) -> None:
+    if exc.response.status_code in {401, 403}:
+        raise HTTPException(
+            502,
+            "INDmoney token rejected or expired. Refresh INDMONEY_ACCESS_TOKEN in .env and restart the backend.",
+        )
+    raise HTTPException(
+        502,
+        f"INDmoney API request failed with status {exc.response.status_code}.",
+    )
+
+
+async def _call_indmoney(awaitable):
+    try:
+        return await awaitable
+    except httpx.HTTPStatusError as exc:
+        _raise_api_error(exc)
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 @router.get("/profile", summary="User profile")
 async def profile(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_profile()
+    return await _call_indmoney(client.get_profile())
 
 
 @router.get("/funds", summary="Available margin & balance")
 async def funds(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_funds()
+    return await _call_indmoney(client.get_funds())
 
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
 
 @router.get("/portfolio", summary="Full portfolio snapshot (holdings + positions + funds)")
 async def portfolio_summary(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_portfolio_summary()
+    return await _call_indmoney(client.get_portfolio_summary())
 
 
 @router.get("/holdings", summary="Delivery / CNC holdings")
 async def holdings(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_holdings()
+    return await _call_indmoney(client.get_holdings())
 
 
 @router.get("/positions", summary="Open intraday & F&O positions")
 async def positions(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_positions()
+    return await _call_indmoney(client.get_positions())
 
 
 # ── Market Data ───────────────────────────────────────────────────────────────
@@ -56,7 +76,7 @@ async def quotes(
     client: IndMoneyConnector = Depends(indmoney),
 ):
     """Comma-separated symbols, e.g. NSE:RELIANCE,NSE:TCS"""
-    return await client.get_quotes(symbols.split(","))
+    return await _call_indmoney(client.get_quotes(symbols.split(",")))
 
 
 @router.get("/ltp", summary="Last Traded Price")
@@ -64,7 +84,7 @@ async def ltp(
     symbols: str = Query(..., example="NSE:RELIANCE,NSE:NIFTY50"),
     client: IndMoneyConnector = Depends(indmoney),
 ):
-    return await client.get_ltp(symbols.split(","))
+    return await _call_indmoney(client.get_ltp(symbols.split(",")))
 
 
 @router.get("/option-chain", summary="Option chain with Greeks")
@@ -73,7 +93,7 @@ async def option_chain(
     expiry: str = Query(..., example="2026-04-28"),
     client: IndMoneyConnector = Depends(indmoney),
 ):
-    return await client.get_option_chain(symbol, expiry)
+    return await _call_indmoney(client.get_option_chain(symbol, expiry))
 
 
 @router.get("/option-chain/expiries", summary="Available expiry dates")
@@ -81,7 +101,7 @@ async def expiry_dates(
     symbol: str = Query(..., example="BANKNIFTY"),
     client: IndMoneyConnector = Depends(indmoney),
 ):
-    return await client.get_expiry_dates(symbol)
+    return await _call_indmoney(client.get_expiry_dates(symbol))
 
 
 @router.get("/historical", summary="Historical OHLCV candles")
@@ -92,7 +112,7 @@ async def historical(
     to_date:   Optional[str] = Query(None, example="2026-04-07"),
     client: IndMoneyConnector = Depends(indmoney),
 ):
-    return await client.get_historical(symbol, interval, from_date, to_date)
+    return await _call_indmoney(client.get_historical(symbol, interval, from_date, to_date))
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -110,22 +130,22 @@ class OrderRequest(BaseModel):
 
 @router.post("/orders", summary="Place an order")
 async def place_order(req: OrderRequest, client: IndMoneyConnector = Depends(indmoney)):
-    return await client.place_order(**req.dict())
+    return await _call_indmoney(client.place_order(**req.dict()))
 
 
 @router.get("/orders", summary="Order book")
 async def order_book(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_order_book()
+    return await _call_indmoney(client.get_order_book())
 
 
 @router.post("/orders/{order_id}/cancel", summary="Cancel an order")
 async def cancel_order(order_id: str, client: IndMoneyConnector = Depends(indmoney)):
-    return await client.cancel_order(order_id)
+    return await _call_indmoney(client.cancel_order(order_id))
 
 
 @router.get("/trades", summary="Trade history")
 async def trade_history(client: IndMoneyConnector = Depends(indmoney)):
-    return await client.get_trade_history()
+    return await _call_indmoney(client.get_trade_history())
 
 
 # ── Smart Orders (GTT / OCO) ──────────────────────────────────────────────────
@@ -142,7 +162,7 @@ class GTTRequest(BaseModel):
 
 @router.post("/gtt", summary="Place GTT / OCO smart order")
 async def place_gtt(req: GTTRequest, client: IndMoneyConnector = Depends(indmoney)):
-    return await client.place_gtt(**req.dict())
+    return await _call_indmoney(client.place_gtt(**req.dict()))
 
 
 # ── WebSocket info ────────────────────────────────────────────────────────────

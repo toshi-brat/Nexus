@@ -30,7 +30,18 @@ const sentimentLabel = (value: unknown): 'bullish' | 'bearish' | 'neutral' => {
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${API}${path}`)
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) {
+    let detail = `${r.status} ${r.statusText}`
+    try {
+      const body = await r.json()
+      if (body && typeof body === 'object' && typeof body.detail === 'string') {
+        detail = body.detail
+      }
+    } catch {
+      // Ignore JSON parsing errors and fall back to status text.
+    }
+    throw new Error(detail)
+  }
   return r.json()
 }
 
@@ -40,7 +51,18 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) {
+    let detail = `${r.status} ${r.statusText}`
+    try {
+      const payload = await r.json()
+      if (payload && typeof payload === 'object' && typeof payload.detail === 'string') {
+        detail = payload.detail
+      }
+    } catch {
+      // Ignore JSON parsing errors and fall back to status text.
+    }
+    throw new Error(detail)
+  }
   return r.json()
 }
 
@@ -94,10 +116,14 @@ function normalizeOptionChain(data: RecordLike) {
 }
 
 function normalizeSentiment(data: RecordLike) {
-  const total = toNumber(data.total) ?? 0
-  const positive = toNumber(data.positive) ?? 0
-  const negative = toNumber(data.negative) ?? 0
-  const neutral = toNumber(data.neutral) ?? 0
+  const distribution =
+    data.distribution && typeof data.distribution === 'object'
+      ? (data.distribution as RecordLike)
+      : {}
+  const positive = toNumber(data.positive) ?? toNumber(distribution.bullish) ?? 0
+  const negative = toNumber(data.negative) ?? toNumber(distribution.bearish) ?? 0
+  const neutral = toNumber(data.neutral) ?? toNumber(distribution.neutral) ?? 0
+  const total = toNumber(data.total) ?? positive + negative + neutral
   const pct = (count: number) => (total > 0 ? Math.round((count / total) * 100) : 0)
 
   const normalizeNewsItems = (items: unknown) =>
@@ -105,11 +131,16 @@ function normalizeSentiment(data: RecordLike) {
       ? items.map((item) => {
           const row = item as RecordLike
           return {
-            title: String(row.title ?? ''),
+            title: String(row.title ?? row.text ?? ''),
             source: String(row.source ?? 'News'),
             url: String(row.url ?? '#'),
-            published: typeof row.published === 'string' ? row.published : new Date().toISOString(),
-            sentiment: sentimentLabel(row.sentiment_label ?? row.sentiment),
+            published:
+              typeof row.published === 'string'
+                ? row.published
+                : typeof row.timestamp === 'string'
+                  ? row.timestamp
+                  : new Date().toISOString(),
+            sentiment: sentimentLabel(row.sentiment_label ?? row.sentiment ?? row.score),
           }
         })
       : []
@@ -119,24 +150,33 @@ function normalizeSentiment(data: RecordLike) {
       ? items.map((item) => {
           const row = item as RecordLike
           return {
-            title: String(row.title ?? ''),
-            subreddit: String(row.subreddit ?? row.sub ?? 'reddit'),
+            title: String(row.title ?? row.text ?? ''),
+            subreddit: String(row.subreddit ?? row.sub ?? row.source ?? 'reddit'),
             url: String(row.url ?? '#'),
             comments: firstNumber(row, ['comments', 'num_comments']) ?? 0,
             score: firstNumber(row, ['score']) ?? 0,
-            sentiment: sentimentLabel(row.sentiment_label ?? row.sentiment),
+            sentiment: sentimentLabel(row.sentiment_label ?? row.sentiment ?? row.score),
           }
         })
       : []
 
+  const overallScore = toNumber(data.score) ?? toNumber(data.raw_score) ?? 0
+
   return {
-    overall_score: toNumber(data.score) ?? 0,
-    label: String(data.label ?? 'NEUTRAL'),
+    overall_score: overallScore,
+    label:
+      typeof data.label === 'string'
+        ? data.label
+        : overallScore > 0.1
+          ? 'POSITIVE'
+          : overallScore < -0.1
+            ? 'NEGATIVE'
+            : 'NEUTRAL',
     bullish_pct: pct(positive),
     bearish_pct: pct(negative),
     neutral_pct: pct(neutral),
     news_items: normalizeNewsItems(data.news),
-    reddit_items: normalizeRedditItems(data.reddit),
+    reddit_items: normalizeRedditItems(data.reddit ?? data.social),
   }
 }
 
@@ -209,7 +249,7 @@ export const marketApi = {
 }
 
 export const sentimentApi = {
-  getSentiment: async (): Promise<any> => normalizeSentiment(await get<RecordLike>('/api/sentiment')),
+  getSentiment: async (): Promise<any> => normalizeSentiment(await get<RecordLike>('/sentiment')),
 }
 
 export const portfolioApi = {
@@ -249,3 +289,13 @@ export const indmoney = {
   placeGTT: (gtt: unknown) => post('/indmoney/gtt', gtt),
   wsInfo: () => get('/indmoney/ws-info'),
 }
+
+
+// ── Brain (Quantitative Engine) ────────────────────────────────────────────
+export const screener = {
+  run: () => get('/screener')
+};
+
+export const brain = {
+  analyze: (symbol: string, capital: number) => get(`/brain/analyze/${symbol}?capital=${capital}`),
+};

@@ -1,24 +1,31 @@
 from fastapi import APIRouter
-from services.news_scraper import fetch_all_news
-from services.sentiment_analyzer import analyse_batch, aggregate_sentiment
-from services.social_monitor import fetch_reddit_posts
-import asyncio
-from datetime import datetime
+from services.data.scraper import scraper
+from services.data.nlp import nlp_engine
+import statistics
 
-router = APIRouter(prefix="/api/sentiment", tags=["sentiment"])
-_cache = {"updated": None, "data": None}
+router = APIRouter(prefix="/sentiment", tags=["Sentiment Hub"])
 
 @router.get("")
 async def get_sentiment():
-    from datetime import datetime as dt
-    now = dt.utcnow()
-    if _cache["data"] and _cache["updated"] and (now-_cache["updated"]).seconds < 300:
-        return _cache["data"]
-    news, reddit = await asyncio.gather(fetch_all_news(5), fetch_reddit_posts(15))
-    all_items = analyse_batch(news) + analyse_batch(reddit)
-    summary = aggregate_sentiment(all_items)
-    summary["news"] = analyse_batch(news)[:15]
-    summary["reddit"] = analyse_batch(reddit)[:10]
-    summary["updated"] = now.isoformat()
-    _cache["data"] = summary; _cache["updated"] = now
-    return summary
+    reddit_posts = scraper.get_reddit_posts(limit=8)
+    news_posts = scraper.get_news(limit=12)
+
+    all_posts = reddit_posts + news_posts
+
+    # Calculate global score (-1 to 1) -> mapped to (0 to 100) for Fear/Greed index
+    raw_score = nlp_engine.aggregate_score(all_posts)
+    # Map [-1, 1] to [0, 100]
+    fear_greed_index = int(((raw_score + 1) / 2) * 100)
+
+    # Group by classification
+    bullish = len([p for p in all_posts if p['score'] > 0])
+    bearish = len([p for p in all_posts if p['score'] < 0])
+    neutral = len([p for p in all_posts if p['score'] == 0])
+
+    return {
+        "fear_greed_index": fear_greed_index,
+        "raw_score": raw_score,
+        "distribution": {"bullish": bullish, "bearish": bearish, "neutral": neutral},
+        "news": news_posts,
+        "social": reddit_posts
+    }

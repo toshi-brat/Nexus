@@ -4,7 +4,10 @@ import { fmt, colorPnl } from '../lib/utils'
 import { Briefcase, RefreshCw, AlertCircle, Wallet } from 'lucide-react'
 
 export default function Portfolio() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: ['portfolio'], queryFn: portfolioApi.getLiveHoldings })
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['portfolio'],
+    queryFn: portfolioApi.getLiveHoldings,
+  })
 
   return (
     <div className="space-y-6">
@@ -16,7 +19,17 @@ export default function Portfolio() {
         <button onClick={() => refetch()} className="btn-ghost flex items-center gap-2"><RefreshCw size={16} /> Sync</button>
       </div>
 
-      {isLoading ? <div className="h-64 shimmer rounded w-full"></div> : (
+      {isLoading ? <div className="h-64 shimmer rounded w-full"></div> : isError ? (
+        <div className="bg-loss/10 border border-loss/20 text-loss p-5 rounded-lg flex items-start gap-3">
+          <AlertCircle className="shrink-0 mt-0.5" size={20} />
+          <div>
+            <p className="font-semibold text-sm">INDmoney sync failed</p>
+            <p className="text-xs opacity-80 mt-1">
+              {error instanceof Error ? error.message : 'Unable to load INDmoney portfolio right now.'}
+            </p>
+          </div>
+        </div>
+      ) : (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -55,7 +68,7 @@ export default function Portfolio() {
                 <p className="text-xs opacity-80 mt-1">Connect your broker (Zerodha/Upstox/Dhan) in the backend .env file and restart to see live holdings.</p>
               </div>
             </div>
-          ) : (
+          ) : data?.summary?.broker === 'indmoney' ? (
             <div className="bg-blue/10 border border-blue/20 text-blue p-4 rounded-lg flex items-start gap-3">
               <Wallet className="shrink-0 mt-0.5" size={20} />
               <div>
@@ -65,7 +78,13 @@ export default function Portfolio() {
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
+
+          {!data?.holdings?.length && data?.summary?.broker === 'indmoney' ? (
+            <div className="bg-surface border border-border text-tx-m p-4 rounded-lg">
+              No holdings returned from INDmoney for this account.
+            </div>
+          ) : null}
 
           {/* Holdings Table */}
           <div className="card p-0 overflow-hidden">
