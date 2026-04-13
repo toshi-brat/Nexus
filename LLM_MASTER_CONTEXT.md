@@ -77,3 +77,26 @@ To make NEXUS self-sufficient, an asynchronous daemon runs alongside the FastAPI
 
 ## Context Restored
 If you are an AI reading this, you now know exactly what the codebase looks like, what libraries are used, and the mathematical philosophies governing the logic. You may proceed to answer the user's next request seamlessly.
+
+---
+
+## 9. Change Log Discipline (Mandatory)
+- **Rule:** Every time any code/config/behavior is changed in this project, append an entry to this file with the exact **date and time** and a brief summary of what changed.
+- This log must be maintained continuously so this document always contains a full running history of system changes.
+
+### Change Log Entries
+
+#### 2026-04-13 21:24:38 IST
+- Integrated live-data-first behavior in `indstocks_feed.py` with robust fallback handling.
+- Added INDmoney scrip-code based historical mapping via instruments master and corrected historical interval path handling.
+- Tuned swing screener logic (`screener.py`) to improve actionable output in quiet markets:
+  - relaxed breakout thresholds,
+  - added ranked momentum watchlist fallback,
+  - introduced `score` and `signal_strength` (`A/B/C`).
+- Added screener API filters in `backend/routers/screener.py`:
+  - `min_strength` query param (`A|B|C`),
+  - `limit` query param for top-N results.
+- Added paper-trade delete support:
+  - API client `DELETE` helper and `tradesApi.deleteTrade(...)` in `frontend/src/lib/api.ts`,
+  - delete action button + mutation in `frontend/src/pages/PaperTrade.tsx`.
+- Confirmed journal tracking behavior: "Add to Journal" writes to `trades` table (paper-trade log), while daily notes are stored separately in `journal`.
