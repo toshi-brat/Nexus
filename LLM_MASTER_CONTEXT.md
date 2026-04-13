@@ -208,3 +208,76 @@ If you are an AI reading this, you now know exactly what the codebase looks like
 - Validation:
   - `/brain/scan` now returns `run_id`, `shortlist`, and normalized `EQ` suggestions,
   - scanner-created paper trade successfully appears in `/api/trades`.
+
+---
+
+## 11. Master Development Roadmap (Adopted 2026-04-14)
+
+The canonical build sequence from current state to a self-optimizing trading system. Scanner phases labeled **A–G**. AI layer phases labeled **AI Phase 0–3** (see `NEXUS_AI_Rollout_Plan.md`).
+
+**Core principle:** No learning claims without outcome data. Phase C (Outcome Resolver) is the critical gate — nothing downstream is valid without it.
+
+### Phase A — Stabilize Scanner (1–2 days)
+- Tighten stock universe filters: extend ETF/BEES/index-derivative exclusion list, restrict to `EQ` series only
+- Hard-cap every scan run to exactly top 5 ranked candidates (`recommendation_score` desc)
+- Add deduplication: one entry per symbol across all strategies in a single run
+- Add `scan_quality_flags` to `scan_meta` for operational visibility
+
+### Phase B — Journal Pipeline (1 day)
+- Auto-save shortlist to paper journal on every scan (`save_paper_trades=true` default)
+- Prevent duplicate inserts: check `symbol + strategy + run_id` before insert
+- Add `source` column to `Trade` table (`manual` | `scanner` | `autonomous`)
+- Add `run_id` column to `Trade` table — populated for all scanner-sourced trades
+- Show `source` badge on PaperTrade.tsx rows
+
+### Phase C — Outcome Resolver (2–3 days) ← CRITICAL GATE
+- New file: `backend/services/brain/outcome_resolver.py`
+- Walks OHLC candles forward from each trade's entry: marks `WIN` / `LOSS` / `OPEN` / `SKIP`
+- Computes `realized_r` and `realized_pnl_pct` per trade
+- New columns on `Trade`: `outcome`, `realized_pnl`, `realized_pnl_pct`, `realized_r`, `resolved_at`, `resolver_notes`
+- New endpoints: `POST /brain/resolve`, `POST /brain/resolve/{trade_id}`
+- APScheduler job: auto-resolves all open trades daily at 4:00 PM IST
+- Updates `/brain/scan/performance` to use resolved trade data (not raw signal count)
+
+### Phase D — Weekly Analytics (2 days)
+- New file: `backend/services/analytics/weekly_report.py` — builds full Friday report
+- Metrics: win rate by strategy, avg R / expectancy, regime slices, top failure patterns, best/worst symbols
+- New router: `backend/routers/analytics.py` — endpoints: `/analytics/weekly-report`, `/analytics/strategy-performance`, `/analytics/symbol-performance`
+- New page: `frontend/src/pages/Analytics.tsx` — full report UI, manual refresh only
+
+### Phase E — RAG Memory (4–6 days)
+- Full AI layer infrastructure (see `NEXUS_AI_Rollout_Plan.md` → AI Phase 0 + AI Phase 1)
+- Groq LLM client, ChromaDB lesson store, RAG pipeline, feedback loop, context builder
+- "Ask AI" button live on Strategy page, AI Lesson card on PaperTrade page
+- Entry gate: Phase C must be complete + `GROQ_API_KEY` set + 10+ resolved trades
+
+### Phase F — Confidence Layer (3–4 days)
+- AI-adjusted confidence scores on every signal (see `NEXUS_AI_Rollout_Plan.md` → AI Phase 2)
+- Regime-based win rate multiplier: `ai_confidence = base × regime_win_rate_multiplier`
+- Thresholding: Green ≥ 70%, Yellow 50–69%, Red < 50% (signals never hidden — human decides)
+- Daily brief widget on Overview page
+
+### Phase G — 60–90 Day Optimization (Ongoing from ~Day 60)
+- Weekly minor parameter adjustments only — one parameter per strategy per week max
+- Every adjustment logged in this MD with: `{ parameter, old_value, new_value, reason, sample_size }`
+- Track out-of-sample result the following week; revert if 2 consecutive weeks show regression
+- Alpha Candidate Score = `(win_rate × avg_R × sample_size_weight) - regime_volatility_penalty`
+- Target: Alpha Score > 0.6 for 2+ strategies by Week 12
+
+### Operating Cadence
+- **Weekend / Mon pre-open:** Run batched NSE scan → log top 5 paper trades
+- **Daily 4 PM auto:** Outcome resolver fires (APScheduler)
+- **Friday post-close:** Weekly analytics report + AI coaching query + MD changelog update
+
+---
+
+## 12. AI Layer Plan (Separate from Scanner Phases)
+
+The AI learning layer is documented in full in `NEXUS_AI_Rollout_Plan.md`. Summary:
+- **AI Phase 0:** Groq LLM + ChromaDB infrastructure + signal explainer (runs in parallel with Scanner Phase E)
+- **AI Phase 1:** Feedback loop — auto-write lessons to ChromaDB on every trade close
+- **AI Phase 2:** Regime classifier + AI confidence modifiers + daily brief
+- **AI Phase 3:** Free-form coach, benching alerts, entry refinement rules
+- LLM stack: Groq API (primary, free) | Ollama optional stub only (not built)
+- "Learning" mechanism: RAG over growing ChromaDB lesson library — not model fine-tuning
+

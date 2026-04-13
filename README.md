@@ -111,3 +111,23 @@ If you are an AI reading this, you now know exactly what the codebase looks like
 - Updated `frontend/src/lib/api.ts`: added `strategyApi.runScan()`, `.getHistory()`, `.getPerformance()`.
 - Updated `frontend/src/App.tsx`: added `/strategy` route.
 - Updated `frontend/src/components/layout/Sidebar.tsx`: added "Strategy" nav link with Target icon.
+
+---
+
+## Development Roadmap (Adopted 2026-04-14)
+
+| Phase | Name | Duration | Status |
+|---|---|---|---|
+| **A** | Scanner Stabilize — top 5 clean EQ candidates, dedup | 1–2 days | 🔲 Next |
+| **B** | Journal Pipeline — auto-save shortlist, source tagging, dedup guard | 1 day | 🔲 |
+| **C** | Outcome Resolver — WIN/LOSS/SKIP per trade, realized R | 2–3 days | 🔲 |
+| **D** | Weekly Analytics — Friday report, expectancy, failure patterns | 2 days | 🔲 |
+| **E** | RAG Memory — Groq LLM + ChromaDB lessons, "Ask AI" on signals | 4–6 days | 🔲 |
+| **F** | Confidence Layer — AI-adjusted confidence, regime badges, daily brief | 3–4 days | 🔲 |
+| **G** | 60–90 Day Optimization — weekly tuning, alpha score convergence | Ongoing | 🔲 |
+
+**Operating cadence:** Weekend/Monday pre-open scans → top 5 paper trades logged. Friday post-close analytics + parameter review. Daily 4 PM auto-resolver.
+
+See `NEXUS_Master_Rollout_PhaseA_G.md` for full technical spec per phase.  
+See `NEXUS_AI_Rollout_Plan.md` for AI layer (Phases E–F) file-by-file details.
+
