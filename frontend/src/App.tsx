@@ -5,6 +5,7 @@ import Sentiment from './pages/Sentiment'
 import Portfolio from './pages/Portfolio'
 import PaperTrade from './pages/PaperTrade'
 import Analysis from './pages/Analysis'
+import Strategy from './pages/Strategy'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="portfolio" element={<Portfolio />} />
           <Route path="paper" element={<PaperTrade />} />
           <Route path="analysis" element={<Analysis />} />
+          <Route path="strategy" element={<Strategy />} />
         </Route>
       </Routes>
     </BrowserRouter>

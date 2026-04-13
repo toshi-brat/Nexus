@@ -317,3 +317,33 @@ export const screener = {
 export const brain = {
   analyze: (symbol: string, capital: number) => get(`/brain/analyze/${symbol}?capital=${capital}`),
 };
+
+// ── Strategy Scanner ───────────────────────────────────────────────────────
+export const strategyApi = {
+  runScan: (params: {
+    timeframe?: string
+    days?: number
+    capital?: number
+    strategy?: string
+    save?: boolean
+  }) => {
+    const qs = new URLSearchParams()
+    if (params.timeframe) qs.set('timeframe', params.timeframe)
+    if (params.days)      qs.set('days', String(params.days))
+    if (params.capital)   qs.set('capital', String(params.capital))
+    if (params.strategy)  qs.set('strategy', params.strategy)
+    qs.set('save', String(params.save ?? true))
+    return get<any>(`/brain/scan?${qs.toString()}`)
+  },
+
+  getHistory: (params?: { strategy?: string; symbol?: string; outcome?: string; limit?: number }) => {
+    const qs = new URLSearchParams()
+    if (params?.strategy) qs.set('strategy', params.strategy)
+    if (params?.symbol)   qs.set('symbol', params.symbol)
+    if (params?.outcome)  qs.set('outcome', params.outcome)
+    if (params?.limit)    qs.set('limit', String(params.limit))
+    return get<any>(`/brain/scan/history?${qs.toString()}`)
+  },
+
+  getPerformance: () => get<any>('/brain/scan/performance'),
+}

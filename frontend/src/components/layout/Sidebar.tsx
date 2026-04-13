@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Activity, BarChart2, BookOpen, LineChart, PieChart, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Activity, BarChart2, BookOpen, LineChart, PieChart, Target, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '../../store'
 
 export default function Sidebar() {
@@ -11,6 +11,7 @@ export default function Sidebar() {
     { to: '/portfolio', icon: PieChart, label: 'Portfolio' },
     { to: '/paper', icon: BookOpen, label: 'Paper Trading' },
     { to: '/analysis', icon: LineChart, label: 'Analysis' },
+    { to: '/strategy', icon: Target, label: 'Strategy' },
   ]
 
   return (

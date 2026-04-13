@@ -62,6 +62,32 @@ class PortfolioHolding(Base):
     notes     = Column(Text)
     added_at  = Column(DateTime, default=datetime.utcnow)
 
+
+class ScanResult(Base):
+    """Stores every strategy signal found during a full NSE scan run."""
+    __tablename__ = "scan_results"
+    id               = Column(Integer, primary_key=True, index=True)
+    symbol           = Column(String(50), nullable=False, index=True)
+    strategy         = Column(String(100), nullable=False, index=True)
+    action           = Column(String(10))            # BUY / SELL
+    instrument       = Column(String(20))            # OPT / EQ / FUT
+    entry_price      = Column(Float)
+    target_price     = Column(Float)
+    stop_loss        = Column(Float)
+    confidence       = Column(Float)                 # 0-100
+    kelly_pct        = Column(Float)
+    qty              = Column(Integer)
+    capital_allocated= Column(Float)
+    rationale        = Column(Text)
+    timeframe        = Column(String(10))
+    days_lookback    = Column(Integer)
+    is_index         = Column(Boolean, default=False)
+    outcome          = Column(String(10), default="PENDING")  # PENDING / WIN / LOSS / SKIP
+    outcome_price    = Column(Float)
+    outcome_pnl      = Column(Float)
+    scanned_at       = Column(DateTime, default=datetime.utcnow)
+    resolved_at      = Column(DateTime)
+
 def get_db():
     db = SessionLocal()
     try:
