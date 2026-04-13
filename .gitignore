@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+LLM_MASTER_CONTEXT.md
 
 .DS_Store
 
@@ -20,3 +21,4 @@ data/*.db
 
 .idea/
 .vscode/
+.zip

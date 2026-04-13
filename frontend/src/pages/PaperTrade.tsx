@@ -1,11 +1,19 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { tradesApi } from '../lib/api'
 import { fmt, colorPnl } from '../lib/utils'
-import { BookOpen, Plus, Activity, Crosshair, TrendingUp, Notebook } from 'lucide-react'
+import { BookOpen, Plus, Crosshair, Notebook, Trash2 } from 'lucide-react'
 
 export default function PaperTrade() {
+  const qc = useQueryClient()
   const { data: stats, isLoading: loadStats } = useQuery({ queryKey: ['trade-stats'], queryFn: tradesApi.getStats })
   const { data: trades, isLoading: loadTrades } = useQuery({ queryKey: ['trades'], queryFn: () => tradesApi.getTrades() })
+  const deleteTradeMutation = useMutation({
+    mutationFn: (tradeId: number) => tradesApi.deleteTrade(tradeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trades'] })
+      qc.invalidateQueries({ queryKey: ['trade-stats'] })
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -63,6 +71,17 @@ export default function PaperTrade() {
                   ) : (
                     <button className="btn-ghost text-xs py-1">Exit Position</button>
                   )}
+                  <button
+                    className="btn-ghost text-xs py-1 mt-2 text-loss hover:bg-loss/10"
+                    onClick={() => deleteTradeMutation.mutate(t.id)}
+                    disabled={deleteTradeMutation.isPending}
+                    title="Delete trade entry"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Trash2 size={12} />
+                      Delete
+                    </span>
+                  </button>
                 </div>
               </div>
             ))}

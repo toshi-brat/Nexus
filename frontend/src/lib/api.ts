@@ -66,6 +66,23 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return r.json()
 }
 
+async function del<T>(path: string): Promise<T> {
+  const r = await fetch(`${API}${path}`, { method: 'DELETE' })
+  if (!r.ok) {
+    let detail = `${r.status} ${r.statusText}`
+    try {
+      const payload = await r.json()
+      if (payload && typeof payload === 'object' && typeof payload.detail === 'string') {
+        detail = payload.detail
+      }
+    } catch {
+      // Ignore JSON parsing errors and fall back to status text.
+    }
+    throw new Error(detail)
+  }
+  return r.json()
+}
+
 function normalizeMovers(data: RecordLike) {
   const normalizeList = (items: unknown) =>
     Array.isArray(items)
@@ -260,6 +277,7 @@ export const tradesApi = {
   getTrades: (): Promise<any[]> => get<any[]>('/api/trades'),
   getStats: (): Promise<any> => get<any>('/api/trades/stats'),
   addTrade: (trade: unknown): Promise<any> => post('/api/trades', trade),
+  deleteTrade: (tradeId: number): Promise<{ ok: boolean }> => del(`/api/trades/${tradeId}`),
 }
 
 export const fetchMarketOverview = marketApi.getOverview
