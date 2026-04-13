@@ -77,3 +77,37 @@ To make NEXUS self-sufficient, an asynchronous daemon runs alongside the FastAPI
 
 ## Context Restored
 If you are an AI reading this, you now know exactly what the codebase looks like, what libraries are used, and the mathematical philosophies governing the logic. You may proceed to answer the user's next request seamlessly.
+
+#### 2026-04-13 23:32:00 IST
+- Deep research on free & safe NSE data feed alternatives to INDmoney (Angel One SmartAPI, Upstox v3, DhanHQ, Fyers API v3, NSE direct scrape) — documented safest layered strategy for historical OHLCV + live LTP + option chain (PCR/max-pain).
+
+#### 2026-04-13 23:45:00 IST
+- Expanded strategy universe from 20 stocks → full NSE F&O eligible universe (185 symbols).
+- Created `backend/services/brain/nse_universe.py`:
+  - `INDEX_SYMBOLS` list: NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY (all 5 strategies run on these).
+  - `FNO_STOCKS` list: 181 NSE F&O eligible stocks (VolBreakout, StatArb, SentimentConvergence run on these).
+  - Helper functions: `get_index_symbols()`, `get_fno_stocks()`, `get_full_universe()`.
+- Created `backend/services/brain/market_scanner.py`:
+  - `run_full_scan()` — concurrent 12-thread scan across all 185 symbols via `ThreadPoolExecutor`.
+  - Automatic strategy routing: options strategies (OI Gravity, PCR Fade) skipped for equity stocks.
+  - Results sorted by confidence desc → kelly_pct desc.
+- Updated `backend/models/database.py`:
+  - Added `ScanResult` table: symbol, strategy, action, instrument, entry/target/sl, confidence, kelly_pct, qty, capital_allocated, rationale, timeframe, days_lookback, is_index, outcome (PENDING/WIN/LOSS/SKIP), outcome_pnl, scanned_at, resolved_at.
+- Updated `backend/routers/brain.py` — 3 new endpoints:
+  - `GET /brain/scan` — runs full 185-symbol scan, saves results to DB.
+  - `GET /brain/scan/history` — view historical signals filtered by strategy/symbol/outcome.
+  - `GET /brain/scan/performance` — win rate + avg PnL per strategy for performance testing.
+
+#### 2026-04-14 00:10:00 IST
+- Created `frontend/src/pages/Strategy.tsx` (564 lines) — Strategy Scanner page:
+  - 5 independent strategy cards (OI Gravity, PCR Fade, Vol Breakout, Sentiment Convergence, Stat-Arb).
+  - Each card has its own isolated loading/error/signal state — NO automated fetch, manual-only.
+  - Per-strategy "Run Strategy" button triggers individual scan via `/brain/scan?strategy=<filter>`.
+  - Global "Run All 5" button runs all strategies concurrently via `Promise.allSettled`.
+  - Capital input + timeframe selector (5m / 15m / 30m / 1h / 1d) at page level.
+  - Results table per card: Symbol → Entry → Target → SL → Confidence% → R:R ratio.
+  - "Paper" button on every signal row — writes to Trade Journal with full metadata pre-filled.
+  - Signal count banner + empty state handling.
+- Updated `frontend/src/lib/api.ts`: added `strategyApi.runScan()`, `.getHistory()`, `.getPerformance()`.
+- Updated `frontend/src/App.tsx`: added `/strategy` route.
+- Updated `frontend/src/components/layout/Sidebar.tsx`: added "Strategy" nav link with Target icon.
