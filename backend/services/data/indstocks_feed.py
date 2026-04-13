@@ -414,10 +414,10 @@ class IndStocksDataFeed:
             'volume': [int(np.random.normal(50000, 10000)) for _ in range(periods)]
         })
 
-        # Correlated asset for Stat-Arb
-        df['correlated_close'] = df['close'] * 2.1 + np.random.normal(0, 15, len(df))
-        # Force a recent deviation
-        df.loc[df.index[-1], 'correlated_close'] += 150 
+        # Correlated companion series for Stat-Arb (no forced terminal shock).
+        correlation_noise = np.random.normal(0, 8, len(df))
+        drift_component = np.linspace(-4, 4, len(df))
+        df['correlated_close'] = (df['close'] * 2.1) + correlation_noise + drift_component
 
         return df
 

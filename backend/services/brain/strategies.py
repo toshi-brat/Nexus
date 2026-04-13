@@ -162,8 +162,8 @@ class SimonsStatArbStrategy(BaseStrategy):
         lot_size = 25 if "NIFTY" in symbol else 15
 
         if 'correlated_close' not in df.columns:
-            df['correlated_close'] = df['close'] * 2.1 + np.random.normal(0, 10, len(df))
-            df.loc[df.index[-1], 'correlated_close'] += 150 
+            baseline_noise = np.random.normal(0, 6, len(df))
+            df['correlated_close'] = (df['close'] * 2.1) + baseline_noise
 
         df['ratio'] = df['correlated_close'] / df['close']
         df['ratio_mean'] = df['ratio'].rolling(window=20).mean()

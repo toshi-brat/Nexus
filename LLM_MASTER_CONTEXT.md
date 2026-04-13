@@ -100,3 +100,12 @@ If you are an AI reading this, you now know exactly what the codebase looks like
   - API client `DELETE` helper and `tradesApi.deleteTrade(...)` in `frontend/src/lib/api.ts`,
   - delete action button + mutation in `frontend/src/pages/PaperTrade.tsx`.
 - Confirmed journal tracking behavior: "Add to Journal" writes to `trades` table (paper-trade log), while daily notes are stored separately in `journal`.
+
+#### 2026-04-13 21:52:12 IST
+- Cleaned up simulator bias in Stat-Arb mock path by removing hardcoded terminal anomaly injection.
+- Updated `backend/services/data/indstocks_feed.py`:
+  - removed `correlated_close += 150` forced spike in `_generate_mock_ohlcv()`,
+  - retained correlated series behavior with mild noise/drift only.
+- Updated `backend/services/brain/strategies.py`:
+  - removed the fallback `correlated_close += 150` injection in `SimonsStatArbStrategy`,
+  - fallback correlated series now uses neutral noise without forced Z-score distortion.
