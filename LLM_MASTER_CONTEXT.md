@@ -143,3 +143,68 @@ If you are an AI reading this, you now know exactly what the codebase looks like
 - Updated `frontend/src/lib/api.ts`: added `strategyApi.runScan()`, `.getHistory()`, `.getPerformance()`.
 - Updated `frontend/src/App.tsx`: added `/strategy` route.
 - Updated `frontend/src/components/layout/Sidebar.tsx`: added "Strategy" nav link with Target icon.
+
+#### 2026-04-13 23:49:30 IST
+- **Phase 1 started:** Added dynamic broad NSE universe loading for scanner runs (no longer hardcoded-only).
+- Updated `backend/services/brain/nse_universe.py`:
+  - Added live universe fetch from INDstocks instruments endpoint (`source=equity`).
+  - Added caching (6h TTL) and safe fallback to static F&O list when live fetch fails.
+  - Added `get_nse_equities(refresh=False)` API for scanner consumption.
+- Updated `backend/services/brain/market_scanner.py`:
+  - Switched scanner universe source from static `get_fno_stocks()` to dynamic `get_nse_equities()`.
+- Updated `backend/routers/brain.py` docs/comments to reflect broad NSE dynamic scan semantics.
+
+#### 2026-04-13 23:53:23 IST
+- Added **sequential batch processing** to NSE scanner to avoid running full universe in one burst.
+- Updated `backend/services/brain/market_scanner.py`:
+  - New controls: `batch_size`, `pause_between_batches_sec`, `max_symbols`, `symbol_offset`.
+  - Scanner now processes symbols batch-by-batch with optional pause between batches.
+  - Added richer `scan_meta` (batch count, offsets, caps) for operational tracking.
+- Updated `backend/routers/brain.py` `/brain/scan` endpoint:
+  - Exposed new query params for batch scan control (weekend-friendly throttled runs).
+- Smoke-tested scanner with small sample:
+  - `max_symbols=40`, `batch_size=20`, `pause_between_batches_sec=0.2`,
+  - completed 2 batches sequentially without burst fanout.
+
+#### 2026-04-13 23:54:45 IST
+- Updated scanner to **stocks-only mode** (no options/F&O analysis in scan path).
+- Updated `backend/services/brain/market_scanner.py`:
+  - Removed index/options strategy routing from full scan flow.
+  - Scanner now runs only equity-compatible strategies:
+    - VolatilityBreakout
+    - SentimentConvergence
+    - SimonsStatArb
+  - Removed option-chain dependency from scanner symbol evaluation.
+  - `scan_meta.index_symbols` now remains `0` in this mode.
+- Updated `backend/routers/brain.py` docs for `/brain/scan` to reflect stocks-only behavior.
+
+#### 2026-04-13 23:56:47 IST
+- Added **quality prefilter** to dynamic NSE universe ingestion to reduce noisy/unusable symbols before scan:
+  - switched to prefer `TRADING_SYMBOL` over verbose company-name fields,
+  - restricted to tradable NSE equity series (`EQ`, `BE`, `BZ`),
+  - enforced symbol hygiene regex and removed symbols containing spaces.
+- Updated `backend/services/brain/nse_universe.py` with this prefilter logic.
+- Result: dynamic universe reduced from ~3167 symbols to ~2624 cleaner scanner candidates.
+
+#### 2026-04-14 00:12:27 IST
+- Implemented **Phase 2: Candidate Quality + Journal Pipeline** for stock scanner.
+- Updated `backend/services/brain/market_scanner.py`:
+  - Added stock signal normalization:
+    - forces `instrument="EQ"`,
+    - strips option legs (`legs=[]`),
+    - converts qty/capital sizing to equity-compatible values.
+  - Added ranking metrics:
+    - computed `rr`,
+    - computed `recommendation_score`,
+    - generated `shortlist` from top-ranked signals.
+  - Added run metadata:
+    - `run_id` for traceability,
+    - `shortlist_count` and `shortlist_limit` in `scan_meta`.
+  - Added symbol-quality exclusion tokens (ETF/BEES/liquid-style non-stock symbols).
+- Updated `backend/routers/brain.py` `/brain/scan`:
+  - New query param: `shortlist_limit`,
+  - New query param: `save_paper_trades`,
+  - `save_paper_trades=true` logs shortlist entries to `trades` table with `run_id` and score in notes.
+- Validation:
+  - `/brain/scan` now returns `run_id`, `shortlist`, and normalized `EQ` suggestions,
+  - scanner-created paper trade successfully appears in `/api/trades`.

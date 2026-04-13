@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import pandas as pd
 from datetime import datetime
 import logging
+from typing import Optional
 
 from services.brain.engine import brain
 from services.data.indstocks_feed import indstocks_feed
@@ -51,10 +52,10 @@ async def analyze_symbol(symbol: str, capital: float = Query(100000.0)):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# NSE Full Market Scanner — runs all 5 strategies across full F&O universe
+# NSE Full Market Scanner — runs strategies across broad NSE universe
 # ──────────────────────────────────────────────────────────────────────────────
 from services.brain.market_scanner import run_full_scan
-from models.database import ScanResult, get_db
+from models.database import ScanResult, Trade, get_db
 from sqlalchemy.orm import Session
 from fastapi import Depends
 from sqlalchemy import func
@@ -65,20 +66,31 @@ async def scan_full_nse(
     timeframe: str = Query("15m", description="Candle interval: 1m,5m,15m,1d"),
     days: int = Query(10, ge=3, le=60, description="Lookback days"),
     capital: float = Query(100000.0, description="Portfolio capital for Kelly sizing"),
+    batch_size: int = Query(120, ge=10, le=500, description="Symbols processed per batch"),
+    pause_between_batches_sec: float = Query(1.0, ge=0.0, le=10.0, description="Pause between batches"),
+    max_symbols: Optional[int] = Query(None, ge=20, le=5000, description="Optional cap for partial scan"),
+    symbol_offset: int = Query(0, ge=0, le=10000, description="Start index in universe for rolling scans"),
+    shortlist_limit: int = Query(5, ge=1, le=20, description="Top ranked suggestions returned"),
     strategy: str = Query(None, description="Filter by strategy name substring"),
     save: bool = Query(True, description="Persist signals to DB for tracking"),
+    save_paper_trades: bool = Query(False, description="Also log shortlist to paper trade journal"),
     db: Session = Depends(get_db),
 ):
     """
-    Runs all 5 strategies across the full NSE F&O universe (~180 symbols).
-    Index symbols (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY) run all 5 strategies.
-    Equity F&O stocks run: VolatilityBreakout, StatArb, SentimentConvergence.
+    Runs stocks-only strategies across a broad dynamic NSE equity universe.
+    No options/F&O strategy logic is executed in this scan path.
+    NSE equities run: VolatilityBreakout, StatArb, SentimentConvergence.
     Returns signals ranked by confidence + Kelly %.
     """
     result = run_full_scan(
         timeframe=timeframe,
         days=days,
         capital=capital,
+        batch_size=batch_size,
+        pause_between_batches_sec=pause_between_batches_sec,
+        max_symbols=max_symbols,
+        symbol_offset=symbol_offset,
+        shortlist_limit=shortlist_limit,
         strategy_filter=strategy,
     )
 
@@ -105,6 +117,28 @@ async def scan_full_nse(
         db.commit()
         result["saved_to_db"] = True
         result["saved_count"] = len(result["signals"])
+
+    if save_paper_trades:
+        created = 0
+        run_id = result.get("run_id", "manual")
+        for sig in result.get("shortlist", []):
+            row = Trade(
+                symbol=sig["symbol"],
+                trade_type=sig["action"],
+                instrument="EQ",
+                qty=sig["qty"],
+                entry_price=sig["entry"],
+                stop_loss=sig["stop_loss"],
+                target=sig["target"],
+                setup=sig["strategy"],
+                notes=f"Scanner run {run_id} | score={sig.get('recommendation_score')} | {sig.get('rationale','')}",
+                status="OPEN",
+            )
+            db.add(row)
+            created += 1
+        db.commit()
+        result["saved_to_paper_trades"] = True
+        result["paper_trades_created"] = created
 
     return result
 
